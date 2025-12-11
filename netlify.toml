@@ -1,0 +1,10 @@
+[build]
+  functions = "netlify/functions"
+  publish = "public"
+
+[functions]
+  node_bundler = "esbuild"
+
+# Scheduled function - runs every hour
+[functions."scrape-leads"]
+  schedule = "@hourly"

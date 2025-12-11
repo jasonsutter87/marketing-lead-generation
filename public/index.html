@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lead Scraper - Status</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    h1 { color: #333; }
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stat { font-size: 2em; font-weight: bold; color: #2563eb; }
+    .label { color: #666; font-size: 0.9em; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f9f9f9; font-weight: 600; }
+    .btn {
+      display: inline-block;
+      padding: 10px 20px;
+      background: #2563eb;
+      color: white;
+      text-decoration: none;
+      border-radius: 6px;
+      margin: 5px;
+    }
+    .btn:hover { background: #1d4ed8; }
+    .btn-secondary { background: #6b7280; }
+    .btn-secondary:hover { background: #4b5563; }
+    .loading { color: #666; font-style: italic; }
+    .error { color: #dc2626; }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #e5e7eb;
+      border-radius: 4px;
+      font-size: 0.85em;
+      margin: 2px;
+    }
+    .tag-ga { background: #fef3c7; color: #92400e; }
+    .tag-fb { background: #dbeafe; color: #1e40af; }
+  </style>
+</head>
+<body>
+  <h1>Lead Scraper Dashboard</h1>
+
+  <div class="card" id="login-card">
+    <h2>Login</h2>
+    <input type="password" id="password-input" placeholder="Enter password" style="padding: 10px; width: 200px; margin-right: 10px;">
+    <button onclick="login()" class="btn">Login</button>
+  </div>
+
+  <div id="main-content" style="display: none;">
+  <div class="card">
+    <div class="stats-grid">
+      <div>
+        <div class="stat" id="total-leads">-</div>
+        <div class="label">Total Leads</div>
+      </div>
+      <div>
+        <div class="stat" id="cities-scraped">-</div>
+        <div class="label">Cities Scraped</div>
+      </div>
+      <div>
+        <div class="stat" id="with-tracking">-</div>
+        <div class="label">With GA/FB Pixel</div>
+      </div>
+      <div>
+        <div class="stat" id="next-city">-</div>
+        <div class="label">Next City Index</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Actions</h2>
+    <a id="dl-json" href="#" class="btn">Download All Leads (JSON)</a>
+    <a id="dl-csv" href="#" class="btn">Download CSV</a>
+    <button onclick="loadData()" class="btn btn-secondary">Refresh Status</button>
+  </div>
+
+  <div class="card">
+    <h2>Recent Leads</h2>
+    <div id="recent-leads" class="loading">Loading...</div>
+  </div>
+
+  <div class="card">
+    <h2>Scrape History</h2>
+    <div id="scrape-history" class="loading">Loading...</div>
+  </div>
+  </div>
+
+  <script>
+    let password = localStorage.getItem('lead-scraper-password') || '';
+
+    function login() {
+      password = document.getElementById('password-input').value;
+      localStorage.setItem('lead-scraper-password', password);
+      loadData();
+    }
+
+    // Check for saved password on load
+    if (password) {
+      document.getElementById('login-card').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+    }
+  </script>
+
+  <script>
+    async function loadData() {
+      try {
+        const res = await fetch(`/.netlify/functions/get-status?password=${encodeURIComponent(password)}`);
+        if (res.status === 401) {
+          document.getElementById('login-card').style.display = 'block';
+          document.getElementById('main-content').style.display = 'none';
+          document.getElementById('recent-leads').innerHTML = '<p class="error">Invalid password</p>';
+          localStorage.removeItem('lead-scraper-password');
+          return;
+        }
+        document.getElementById('login-card').style.display = 'none';
+        document.getElementById('main-content').style.display = 'block';
+
+        // Update download links with password
+        document.getElementById('dl-json').href = `/.netlify/functions/get-leads?password=${encodeURIComponent(password)}`;
+        document.getElementById('dl-csv').href = `/.netlify/functions/get-leads?format=csv&password=${encodeURIComponent(password)}`;
+
+        const data = await res.json();
+
+        document.getElementById('total-leads').textContent = data.totalLeads || 0;
+        document.getElementById('cities-scraped').textContent = data.citiesScraped || 0;
+        document.getElementById('with-tracking').textContent = data.withTracking || 0;
+        document.getElementById('next-city').textContent = data.nextCityIndex || 0;
+
+        // Recent leads
+        if (data.recentLeads && data.recentLeads.length > 0) {
+          const table = `
+            <table>
+              <thead>
+                <tr><th>Business</th><th>Category</th><th>City</th><th>Tracking</th></tr>
+              </thead>
+              <tbody>
+                ${data.recentLeads.slice(0, 10).map(lead => `
+                  <tr>
+                    <td>${lead.name}${lead.website ? `<br><small><a href="${lead.website}" target="_blank">${lead.website}</a></small>` : ''}</td>
+                    <td>${lead.category}</td>
+                    <td>${lead.city || '-'}</td>
+                    <td>
+                      ${lead.hasGA ? '<span class="tag tag-ga">GA</span>' : ''}
+                      ${lead.hasFB ? '<span class="tag tag-fb">FB</span>' : ''}
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          document.getElementById('recent-leads').innerHTML = table;
+        } else {
+          document.getElementById('recent-leads').innerHTML = '<p>No leads collected yet. The scraper runs every hour.</p>';
+        }
+
+        // Scrape history
+        if (data.history && data.history.length > 0) {
+          const historyHtml = `
+            <table>
+              <thead>
+                <tr><th>Time</th><th>City</th><th>Category</th><th>Leads Found</th></tr>
+              </thead>
+              <tbody>
+                ${data.history.slice(0, 20).map(h => `
+                  <tr>
+                    <td>${new Date(h.timestamp).toLocaleString()}</td>
+                    <td>${h.city}</td>
+                    <td>${h.category}</td>
+                    <td>${h.leadsFound}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          `;
+          document.getElementById('scrape-history').innerHTML = historyHtml;
+        } else {
+          document.getElementById('scrape-history').innerHTML = '<p>No scrapes yet.</p>';
+        }
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('recent-leads').innerHTML = '<p class="error">Failed to load data</p>';
+      }
+    }
+
+    loadData();
+  </script>
+</body>
+</html>

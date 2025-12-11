@@ -287,6 +287,65 @@ All data is freely available and no API keys are required.
 
 ---
 
+## Netlify Deployment (Automated Scraping)
+
+Deploy to Netlify for automated hourly scraping that builds a database of leads over time.
+
+### How It Works
+
+- **Scheduled Function**: Runs every hour via Netlify Scheduled Functions
+- **Rotation**: Cycles through all 14 categories × 50 cities (700 total combinations)
+- **Storage**: Uses Netlify Blobs to store leads (persists across deploys)
+- **Filtering**: Only saves businesses with Google Analytics or Facebook Pixel
+- **Dashboard**: Web UI to view stats and download leads
+
+### Deploy to Netlify
+
+1. **Push to GitHub** (if not already):
+   ```bash
+   git add .
+   git commit -m "Add Netlify deployment"
+   git push
+   ```
+
+2. **Connect to Netlify**:
+   - Go to [netlify.com](https://netlify.com) and sign in
+   - Click "Add new site" → "Import an existing project"
+   - Select your GitHub repo
+   - Deploy settings are auto-detected from `netlify.toml`
+   - Click "Deploy"
+
+3. **Access Dashboard**:
+   - Visit your Netlify URL (e.g., `https://your-site.netlify.app`)
+   - Enter password: `ztas.io`
+   - View stats, download leads as JSON or CSV
+
+### Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `/` | Dashboard with stats and recent leads |
+| `/.netlify/functions/get-leads?password=ztas.io` | Download all leads as JSON |
+| `/.netlify/functions/get-leads?format=csv&password=ztas.io` | Download all leads as CSV |
+| `/.netlify/functions/get-status?password=ztas.io` | Get current stats and history |
+
+### Expected Results
+
+- **Per hour**: ~5-15 qualified leads (businesses with GA/FB tracking)
+- **Per day**: ~120-360 leads
+- **Per week**: ~840-2,500 leads
+- **Per month**: ~3,600-10,000 leads
+
+The rotation ensures all city/category combinations get scraped over time.
+
+### Costs
+
+- **Netlify Free Tier**: 125k function invocations/month (hourly = 720/month)
+- **Netlify Blobs**: 100GB free storage
+- **External APIs**: OpenStreetMap is free, no rate limiting issues at this volume
+
+---
+
 ## License
 
 MIT
